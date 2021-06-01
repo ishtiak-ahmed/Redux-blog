@@ -1,81 +1,90 @@
-import firebase from "firebase/app";
-import "firebase/auth";
-import React from 'react';
-import firebaseConfig from './firebase.config';
-
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
+import axios from 'axios';
+import React, { useContext, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useHistory } from 'react-router';
+import { UserContext } from '../../App';
 
 const Login = () => {
+    const history = useHistory()
+    const [user, setUser] = useContext(UserContext)
+    const [loginPage, setLoginPage] = useState(false)
+    const { register, handleSubmit, watch, formState: { errors } } = useForm();
+    const submitLogin = (data) => {
+        axios.post('https://ishtiak-blog.herokuapp.com/login', data)
+            .then(result => {
+                console.log(result)
+                if (!result.data) {
+                    alert('Something went wrong')
+                } else {
+                    if (result.role === 'Commenter') {
+                        if (result.spamcount > 1) {
+                            alert('Sorry you are banned from this site for spamming. Contact us if want to comment clean.')
+                        } else {
+                            setUser(result.data)
+                            // history.push('/')
+                        }
+                    } else {
+                        setUser(result.data)
+                        // history.push('/')
+                    }
+                }
+            })
+    }
 
-    const [user, setUser] = useState({
-        name: '',
-        email: '',
-        password: '',
-        isSignedIn: false,
-        error: ''
-    });
-
-    const loginWithGogle = () => {
-        var provider = new firebase.auth.GoogleAuthProvider();
-        firebase.auth()
-            .signInWithPopup(provider)
-            .then((result) => {
-                var { displayName, email } = result.user;
-                const userDetails = { ...user }
-                userDetails.name = displayName;
-                userDetails.isSignedIn = true;
-                userDetails.email = email;
-                setUser(userDetails);
-            }).catch((error) => {
-                const userDetails = { ...user }
-                userDetails.error = error.message;
-                setUser(userDetails);
-            });
+    const submitRegistration = (data) => {
+        console.log(data)
+        const newUser = { ...data, spamcount: 0, _id: data.userName }
+        axios.post('https://ishtiak-blog.herokuapp.com/register', newUser)
+            .then(result => {
+                console.log(result)
+                if (result.data) {
+                    setUser(newUser)
+                    console.log(result.data)
+                    history.push('/')
+                } else {
+                    alert('something went wrong')
+                }
+            })
     }
 
 
-
-    const signOut = () => {
-        firebase.auth().signOut().then(() => {
-            
-            const signOutUser = { ...user };
-            signOutUser.name = '';
-            signOutUser.email = '';
-            signOutUser.password = '';
-            signOutUser.isSignedIn = false;
-            setUser(signOutUser);
-
-        }).catch((error) => {
-            // An error happened.
-        });
+    const LoginForm = () => {
+        return (
+            <form onSubmit={handleSubmit(submitLogin)}>
+                <p>Don't have a account? <button onClick={() => setLoginPage(false)}>Register Now</button></p>
+                <span>Email:</span><input defaultValue="" {...register("email", { required: true })} /> <br />
+                {errors.email && <span>Email is required</span>}
+                <span>Password</span><input type='password' {...register("password", { required: true })} /> <br />
+                {errors.password && <span>This field is required</span>}
+                <input type="submit" value='Login' />
+            </form>
+        )
     }
 
-
+    const RegisterForm = () => {
+        return (
+            <form onSubmit={handleSubmit(submitRegistration)}>
+                <p>Already have a account? <button onClick={() => setLoginPage(true)}>Login Now</button></p>
+                <span>Full Name: </span> <br /><input defaultValue="" {...register("fullName", { required: true })} /> <br />
+                {errors.fullName && <span>Name is required</span>} <br />
+                <span>Email: </span> <br /><input defaultValue="" {...register("email", { required: true })} /> <br />
+                {errors.email && <span>Email is required</span>} <br />
+                <span>Username: </span><br /><input defaultValue="" {...register("userName", { required: true })} /> <br />
+                {errors.userName && <span>Username is required</span>} <br />
+                <span>Password:</span><br /><input type="password" {...register("password", { required: true })} /> <br />
+                {errors.password && <span>Password is required</span>} <br />
+                <input type="submit" value='Register' />
+            </form>
+        )
+    }
     return (
-        <>
-            <div className='logout-area'>
-                <div className='logout-info'>
-                    <p>Already Logged In</p>
-                    <div className='user-logout-info'>
-                        <p>{user.name}</p>
-                        <p>{user.email}</p>
-                    </div>
-                    <button onClick={signOut} className="btn btn-danger mt-4">Logout</button>
-                </div>
-            </div>
-
-            <div className='google-login text-center mt-4'>
-                <button onClick={loginWithGogle} className="btn">
-                    Login With Google
-                                        <span>
-                        <FontAwesomeIcon icon={faGoogle} />
-                    </span>
-                </button>
-            </div>
-        </>
+        <div className='login'>
+            {
+                loginPage ? <LoginForm></LoginForm> : <RegisterForm></RegisterForm>
+            }
+        </div>
     );
+
 
 };
 
